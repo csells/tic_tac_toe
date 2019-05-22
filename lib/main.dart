@@ -149,22 +149,17 @@ class GamePiece extends StatelessWidget {
   void showWinner(BuildContext context) {
     var game = Provider.of<GameState>(context);
 
-    showDialog(
-      context: context,
-      barrierDismissible: false, // user must tap button!
-      builder: (BuildContext context) => AlertDialog(
-            title: Text('Game Over'),
-            content: Center(child: Text("${game.winner} is the winner!")),
-            actions: [
-              FlatButton(
-                child: Text('OK'),
-                onPressed: () {
-                  game.reset();
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
+    Scaffold.of(context).showSnackBar(
+      SnackBar(
+        duration: Duration(days: 365),
+        content: Text("${game.winner} is the winner!"),
+        action: SnackBarAction(
+          label: 'Play Again',
+          onPressed: () {
+            game.reset();
+          },
+        ),
+      ),
     );
   }
 }
