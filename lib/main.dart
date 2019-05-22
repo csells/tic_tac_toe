@@ -120,8 +120,15 @@ class GamePiece extends StatelessWidget {
   Widget build(BuildContext context) => Consumer<GameState>(
         builder: (context, game, child) => Expanded(
               child: CustomPaint(
-                  painter: PiecePainter(game.pieceAt(pos)),
-                  child: GestureDetector(onTap: () => game.move(pos), child: Container())),
+                painter: PiecePainter(game.pieceAt(pos)),
+                child: game.pieceAt(pos) == ''
+                    ? GestureDetector(
+                        onTap: () => game.move(pos),
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(),
+                      )
+                    : Container(),
+              ),
             ),
       );
 }
