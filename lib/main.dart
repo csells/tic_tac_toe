@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'dart:core';
 
 class GameState extends ChangeNotifier {
-  List<String> _pieces;
+  var _pieces = List<String>(9);
   String _player;
   List<int> _winnerPieces;
 
@@ -12,7 +12,8 @@ class GameState extends ChangeNotifier {
   }
 
   String pieceAt(int pos) => _pieces[pos];
-  String get winner => _winnerPieces == null ? '' : _pieces[_winnerPieces[0]];
+  String get winner => _winnerPieces == null ? null : _pieces[_winnerPieces[0]];
+  bool get gameOver => winner != null || _pieces.every((p) => p != null);
   List<int> get winnerPieces => _winnerPieces;
 
   static const List<List<int>> _wins = [
@@ -22,8 +23,8 @@ class GameState extends ChangeNotifier {
   ];
 
   void move(int pos) {
-    assert(winner == '');
-    assert(_pieces[pos] == '');
+    assert(!gameOver);
+    assert(_pieces[pos] == null);
 
     // store the move and check for a winner
     _pieces[pos] = _player;
@@ -34,8 +35,8 @@ class GameState extends ChangeNotifier {
       }
     }
 
-    // if there's not a winner, switch players
-    if (winner == '') {
+    // if the game isn't over, switch players
+    if (!gameOver) {
       _player = _player == 'X' ? 'O' : 'X';
     }
 
@@ -43,7 +44,7 @@ class GameState extends ChangeNotifier {
   }
 
   void reset() {
-    _pieces = List<String>.filled(9, '');
+    _pieces.fillRange(0, _pieces.length, null);
     _winnerPieces = null;
     _player = 'X';
     notifyListeners();
@@ -76,18 +77,12 @@ class GameView extends StatefulWidget {
 }
 
 class _GameViewState extends State<GameView> {
-  final pieces = List<String>.filled(9, '');
-
   @override
-  Widget build(BuildContext context) {
-    var game = Provider.of<GameState>(context);
-
-    return CustomPaint(
-      painter: GridPainter(),
-      foregroundPainter: WinnerPainter(game),
-      child: GamePieces(pieces),
-    );
-  }
+  Widget build(BuildContext context) => CustomPaint(
+        painter: GridPainter(),
+        foregroundPainter: WinnerPainter(Provider.of<GameState>(context)),
+        child: GamePieces(),
+      );
 }
 
 class GridPainter extends CustomPainter {
@@ -108,19 +103,14 @@ class GridPainter extends CustomPainter {
 }
 
 class GamePieces extends StatelessWidget {
-  final List<String> pieces;
-  GamePieces(this.pieces) : assert(pieces.length == 9);
-
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(child: Row(children: [for (var i = 0; i != 3; ++i) GamePiece(i + 0)])),
-        Expanded(child: Row(children: [for (var i = 0; i != 3; ++i) GamePiece(i + 3)])),
-        Expanded(child: Row(children: [for (var i = 0; i != 3; ++i) GamePiece(i + 6)])),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Column(
+        children: [
+          Expanded(child: Row(children: [for (var i = 0; i != 3; ++i) GamePiece(i + 0)])),
+          Expanded(child: Row(children: [for (var i = 0; i != 3; ++i) GamePiece(i + 3)])),
+          Expanded(child: Row(children: [for (var i = 0; i != 3; ++i) GamePiece(i + 6)])),
+        ],
+      );
 }
 
 class GamePiece extends StatelessWidget {
@@ -132,11 +122,12 @@ class GamePiece extends StatelessWidget {
         builder: (context, game, child) => Expanded(
               child: CustomPaint(
                 painter: PiecePainter(game.pieceAt(pos)),
-                child: game.pieceAt(pos) == ''
+                child: game.pieceAt(pos) == null
                     ? GestureDetector(
                         onTap: () {
+                          if (game.gameOver) return;
                           game.move(pos);
-                          if (game.winner != '') showWinner(context);
+                          if (game.gameOver) gameOver(context);
                         },
                         behavior: HitTestBehavior.opaque,
                         child: Container(),
@@ -146,13 +137,14 @@ class GamePiece extends StatelessWidget {
             ),
       );
 
-  void showWinner(BuildContext context) {
+  void gameOver(BuildContext context) {
     var game = Provider.of<GameState>(context);
+    assert(game.gameOver);
 
     Scaffold.of(context).showSnackBar(
       SnackBar(
         duration: Duration(days: 365),
-        content: Text("${game.winner} is the winner!"),
+        content: Text(game.winner == null ? "Cat game!" : "${game.winner} is the winner!"),
         action: SnackBarAction(
           label: 'Play Again',
           onPressed: () {
@@ -194,7 +186,7 @@ class WinnerPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (game.winner == '') return;
+    if (game.winner == null) return;
 
     const sx = 10.0;
     var paint = Paint()..strokeWidth = sx;
@@ -213,13 +205,3 @@ class WinnerPainter extends CustomPainter {
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => true;
 }
-
-/*
-show text sized to a specific box
-child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: SizedBox(
-              child: Text(piece, style: TextStyle(fontSize: 1000)),
-            ),
-          ),
-*/
