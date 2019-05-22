@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:math';
+import 'dart:core';
 
 class GameState extends ChangeNotifier {
   List<String> _pieces;
-  String _winner;
   String _player;
+  List<int> _winnerPieces;
 
   GameState() {
     reset();
   }
 
   String pieceAt(int pos) => _pieces[pos];
-  String get winner => _winner;
+  String get winner => _winnerPieces == null ? '' : _pieces[_winnerPieces[0]];
+  List<int> get winnerPieces => _winnerPieces;
 
   static const List<List<int>> _wins = [
     [0, 1, 2], [3, 4, 5], [6, 7, 8], // by row
@@ -21,27 +22,30 @@ class GameState extends ChangeNotifier {
   ];
 
   void move(int pos) {
-    assert(_winner == '');
+    assert(winner == '');
     assert(_pieces[pos] == '');
 
     // store the move and check for a winner
     _pieces[pos] = _player;
-    _winner = _wins.any((w) => w.every((p) => _pieces[p] == _player)) ? _player : '';
-    _player = _player == 'X' ? 'O' : 'X';
+    for (var win in _wins) {
+      if (win.every((p) => _pieces[p] == _player)) {
+        _winnerPieces = win;
+        break;
+      }
+    }
+
+    // if there's not a winner, switch players
+    if (winner == '') {
+      _player = _player == 'X' ? 'O' : 'X';
+    }
+
     notifyListeners();
   }
 
   void reset() {
     _pieces = List<String>.filled(9, '');
-    _winner = '';
+    _winnerPieces = null;
     _player = 'X';
-
-    // test data
-    _pieces[2] = 'X';
-    _pieces[3] = 'O';
-    _pieces[4] = 'X';
-    _pieces[5] = 'O';
-
     notifyListeners();
   }
 }
@@ -75,8 +79,15 @@ class _GameViewState extends State<GameView> {
   final pieces = List<String>.filled(9, '');
 
   @override
-  Widget build(BuildContext context) =>
-      CustomPaint(painter: GridPainter(), child: GamePieces(pieces));
+  Widget build(BuildContext context) {
+    var game = Provider.of<GameState>(context);
+
+    return CustomPaint(
+      painter: GridPainter(),
+      foregroundPainter: WinnerPainter(game),
+      child: GamePieces(pieces),
+    );
+  }
 }
 
 class GridPainter extends CustomPainter {
@@ -123,7 +134,10 @@ class GamePiece extends StatelessWidget {
                 painter: PiecePainter(game.pieceAt(pos)),
                 child: game.pieceAt(pos) == ''
                     ? GestureDetector(
-                        onTap: () => game.move(pos),
+                        onTap: () {
+                          game.move(pos);
+                          if (game.winner != '') showWinner(context);
+                        },
                         behavior: HitTestBehavior.opaque,
                         child: Container(),
                       )
@@ -131,6 +145,28 @@ class GamePiece extends StatelessWidget {
               ),
             ),
       );
+
+  void showWinner(BuildContext context) {
+    var game = Provider.of<GameState>(context);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // user must tap button!
+      builder: (BuildContext context) => AlertDialog(
+            title: Text('Game Over'),
+            content: Center(child: Text("${game.winner} is the winner!")),
+            actions: [
+              FlatButton(
+                child: Text('OK'),
+                onPressed: () {
+                  game.reset();
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          ),
+    );
+  }
 }
 
 class PiecePainter extends CustomPainter {
@@ -144,7 +180,6 @@ class PiecePainter extends CustomPainter {
     var paint = Paint()
       ..strokeWidth = sx
       ..style = PaintingStyle.stroke;
-    var origin = Offset(0, 0);
 
     if (piece == 'X') {
       canvas.drawLine(Offset(sx3, sx3), size.bottomRight(Offset(-sx3, -sx3)), paint);
@@ -152,6 +187,32 @@ class PiecePainter extends CustomPainter {
     } else if (piece == 'O') {
       canvas.drawOval(Rect.fromLTRB(sx3, sx3, size.width - sx3, size.height - sx3), paint);
     }
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => true;
+}
+
+class WinnerPainter extends CustomPainter {
+  final GameState game;
+  WinnerPainter(this.game);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (game.winner == '') return;
+
+    const sx = 10.0;
+    var paint = Paint()..strokeWidth = sx;
+    paint.color = Colors.green;
+
+    canvas.drawLine(_pieceOffset(size, sx, game.winnerPieces[0]),
+        _pieceOffset(size, sx, game._winnerPieces[2]), paint);
+  }
+
+  Offset _pieceOffset(Size size, double sx, int pos) {
+    var dx = (size.width - sx * 2) / 3 + sx / 2;
+    var dy = (size.height - sx * 2) / 3 + sx / 2;
+    return Offset(pos.remainder(3) * dx + dx / 2, (pos / 3).floor() * dy + dy / 2);
   }
 
   @override
