@@ -1,33 +1,46 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'dart:math';
 
-class GameBoard extends ChangeNotifier {
-  var _pieces = List<String>.filled(9, '');
+class GameState extends ChangeNotifier {
+  List<String> _pieces;
+  String _winner;
+  String _player;
+
+  GameState() {
+    reset();
+  }
+
   String pieceAt(int pos) => _pieces[pos];
-  String _winner = '';
-
   String get winner => _winner;
 
-  void move(int pos, String label) {
-    _pieces[pos] = label;
-    // check for a winner
-    /*
-              Cell[,] possibleWins = {
-            // row
-            { cells[0 + offset], cells[1 + offset], cells[2 + offset] },
-            { cells[3 + offset], cells[4 + offset], cells[5 + offset] },
-            { cells[6 + offset], cells[7 + offset], cells[8 + offset] },
+  static const List<List<int>> _wins = [
+    [0, 1, 2], [3, 4, 5], [6, 7, 8], // by row
+    [0, 3, 6], [1, 4, 7], [2, 5, 8], // by column
+    [0, 4, 8], [2, 4, 6], // by diagonal
+  ];
 
-            // column
-            { cells[0 + offset], cells[3 + offset], cells[6 + offset] },
-            { cells[1 + offset], cells[4 + offset], cells[7 + offset] },
-            { cells[2 + offset], cells[5 + offset], cells[8 + offset] },
+  void move(int pos) {
+    assert(_winner == '');
+    assert(_pieces[pos] == '');
 
-            // diagonal
-            { cells[0 + offset], cells[4 + offset], cells[8 + offset] },
-            { cells[2 + offset], cells[4 + offset], cells[6 + offset] },
-          };
+    // store the move and check for a winner
+    _pieces[pos] = _player;
+    _winner = _wins.any((w) => w.every((p) => _pieces[p] == _player)) ? _player : '';
+    _player = _player == 'X' ? 'O' : 'X';
+    notifyListeners();
+  }
 
-    */
+  void reset() {
+    _pieces = List<String>.filled(9, '');
+    _winner = '';
+    _player = 'X';
+
+    // test data
+    _pieces[2] = 'X';
+    _pieces[3] = 'O';
+    _pieces[4] = 'X';
+    _pieces[5] = 'O';
 
     notifyListeners();
   }
@@ -43,19 +56,22 @@ class App extends StatelessWidget {
     return MaterialApp(
       home: Scaffold(
         body: SafeArea(
-          child: Game(),
+          child: ChangeNotifierProvider(
+            builder: (_) => GameState(),
+            child: GameView(),
+          ),
         ),
       ),
     );
   }
 }
 
-class Game extends StatefulWidget {
+class GameView extends StatefulWidget {
   @override
-  _GameState createState() => _GameState();
+  _GameViewState createState() => _GameViewState();
 }
 
-class _GameState extends State<Game> {
+class _GameViewState extends State<GameView> {
   final pieces = List<String>.filled(9, '');
 
   @override
@@ -68,12 +84,12 @@ class GridPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     const sx = 10.0;
     var paint = Paint()..strokeWidth = sx;
-    var dx = (size.width - sx * 2) / 3;
-    var dy = (size.height - sx * 2) / 3;
+    var dx = (size.width - sx * 2) / 3 + sx / 2;
+    var dy = (size.height - sx * 2) / 3 + sx / 2;
     canvas.drawLine(Offset(dx, sx), Offset(dx, size.height - sx), paint);
-    canvas.drawLine(Offset(dx * 2, sx), Offset(dx * 2, size.height - sx), paint);
+    canvas.drawLine(Offset(dx * 2 + sx / 2, sx), Offset(dx * 2 + sx / 2, size.height - sx), paint);
     canvas.drawLine(Offset(sx, dy), Offset(size.width - sx, dy), paint);
-    canvas.drawLine(Offset(sx, dy * 2), Offset(size.width - sx, dy * 2), paint);
+    canvas.drawLine(Offset(sx, dy * 2 + sx / 2), Offset(size.width - sx, dy * 2 + sx / 2), paint);
   }
 
   @override
@@ -88,35 +104,59 @@ class GamePieces extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Expanded(child: Row(children: [for (var i = 0; i != 3; ++i) GamePiece(pieces[i + 0])])),
-        Expanded(child: Row(children: [for (var i = 0; i != 3; ++i) GamePiece(pieces[i + 3])])),
-        Expanded(child: Row(children: [for (var i = 0; i != 3; ++i) GamePiece(pieces[i + 6])])),
+        Expanded(child: Row(children: [for (var i = 0; i != 3; ++i) GamePiece(i + 0)])),
+        Expanded(child: Row(children: [for (var i = 0; i != 3; ++i) GamePiece(i + 3)])),
+        Expanded(child: Row(children: [for (var i = 0; i != 3; ++i) GamePiece(i + 6)])),
       ],
     );
   }
 }
 
 class GamePiece extends StatelessWidget {
-  final String label;
-  GamePiece(this.label);
+  final int pos;
+  GamePiece(this.pos);
 
   @override
-  Widget build(BuildContext context) => Expanded(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: GestureDetector(
-              onTap: () {},
-              child: Container(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: SizedBox(
-                    child: Text(label, style: TextStyle(fontSize: 1000)),
-                  ),
-                ),
-              ),
+  Widget build(BuildContext context) => Consumer<GameState>(
+        builder: (context, game, child) => Expanded(
+              child: CustomPaint(
+                  painter: PiecePainter(game.pieceAt(pos)),
+                  child: GestureDetector(onTap: () => game.move(pos), child: Container())),
             ),
-          ),
-        ),
       );
 }
+
+class PiecePainter extends CustomPainter {
+  final String piece;
+  PiecePainter(this.piece);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const sx = 10.0;
+    const sx3 = sx * 3;
+    var paint = Paint()
+      ..strokeWidth = sx
+      ..style = PaintingStyle.stroke;
+    var origin = Offset(0, 0);
+
+    if (piece == 'X') {
+      canvas.drawLine(Offset(sx3, sx3), size.bottomRight(Offset(-sx3, -sx3)), paint);
+      canvas.drawLine(size.bottomLeft(Offset(sx3, -sx3)), size.topRight(Offset(-sx3, sx3)), paint);
+    } else if (piece == 'O') {
+      canvas.drawOval(Rect.fromLTRB(sx3, sx3, size.width - sx3, size.height - sx3), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => true;
+}
+
+/*
+show text sized to a specific box
+child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: SizedBox(
+              child: Text(piece, style: TextStyle(fontSize: 1000)),
+            ),
+          ),
+*/
