@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:core';
+import 'dart:async';
+//import 'package:intl/intl.dart'; TODO: use DateFormat.durationFormatFrom when it's implemented...
 
 class GameState extends ChangeNotifier {
   var _pieces = List<String>(9);
   String _player;
   List<int> _winnerPieces;
+  DateTime _started;
+  Timer _timer;
 
   GameState() {
     reset();
@@ -15,6 +19,13 @@ class GameState extends ChangeNotifier {
   String get winner => _winnerPieces == null ? null : _pieces[_winnerPieces[0]];
   bool get gameOver => winner != null || _pieces.every((p) => p != null);
   List<int> get winnerPieces => _winnerPieces;
+  String get status => "It's $_player's turn: ${_durationFormatFrom(_started, "HH:MM:SS")}";
+
+  String _durationFormatFrom(DateTime dt, String format) {
+    assert(format == "HH:MM:SS"); // that's all we're handling right now...
+    var full = DateTime.now().difference(dt).toString();
+    return full.substring(0, full.indexOf('.'));
+  }
 
   static const List<List<int>> _wins = [
     [0, 1, 2], [3, 4, 5], [6, 7, 8], // by row
@@ -47,6 +58,11 @@ class GameState extends ChangeNotifier {
     _pieces.fillRange(0, _pieces.length, null);
     _winnerPieces = null;
     _player = 'X';
+    _started = DateTime.now();
+
+    if (_timer != null) _timer.cancel();
+    _timer = Timer.periodic(Duration(seconds: 1), (_) => notifyListeners());
+
     notifyListeners();
   }
 }
@@ -78,11 +94,22 @@ class GameView extends StatefulWidget {
 
 class _GameViewState extends State<GameView> {
   @override
-  Widget build(BuildContext context) => CustomPaint(
-        painter: GridPainter(),
-        foregroundPainter: WinnerPainter(Provider.of<GameState>(context)),
-        child: GamePieces(),
-      );
+  Widget build(BuildContext context) {
+    var game = Provider.of<GameState>(context);
+
+    return Column(
+      children: [
+        Expanded(
+          child: CustomPaint(
+            painter: GridPainter(),
+            foregroundPainter: WinnerPainter(game),
+            child: GamePieces(),
+          ),
+        ),
+        Text(game.status),
+      ],
+    );
+  }
 }
 
 class GridPainter extends CustomPainter {
