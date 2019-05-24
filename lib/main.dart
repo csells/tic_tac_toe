@@ -87,12 +87,7 @@ class App extends StatelessWidget {
   }
 }
 
-class GameView extends StatefulWidget {
-  @override
-  _GameViewState createState() => _GameViewState();
-}
-
-class _GameViewState extends State<GameView> {
+class GameView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var game = Provider.of<GameState>(context);
