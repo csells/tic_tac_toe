@@ -26,38 +26,34 @@ class MyApp extends StatelessWidget {
   final _gameState = GameState();
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        body: SafeArea(
-          child: Provider(
-            value: _gameState,
-            child: GameView(),
+  Widget build(BuildContext context) => MaterialApp(
+        home: Scaffold(
+          body: SafeArea(
+            child: Provider(
+              value: _gameState,
+              child: GameView(),
+            ),
           ),
         ),
-      ),
-    );
-  }
+      );
 }
 
 class GameView extends StatelessWidget {
   @override
-  Widget build(BuildContext context) {
-    var game = Provider.of<GameState>(context);
-
-    return Column(
-      children: [
-        Expanded(
-          child: CustomPaint(
-            painter: GridPainter(),
-            foregroundPainter: WinnerPainter(game),
-            child: GamePieces(),
-          ),
+  Widget build(BuildContext context) => Consumer<GameState>(
+        builder: (_, game) => Column(
+          children: [
+            Expanded(
+              child: CustomPaint(
+                painter: GridPainter(),
+                foregroundPainter: WinnerPainter(game),
+                child: GamePieces(),
+              ),
+            ),
+            Text(game.status),
+          ],
         ),
-        Text(game.status),
-      ],
-    );
-  }
+      );
 }
 
 class GridPainter extends CustomPainter {
@@ -81,9 +77,8 @@ class GamePieces extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(
         children: [
-          Expanded(child: Row(children: [for (var i = 0; i != 3; ++i) GamePiece(i + 0)])),
-          Expanded(child: Row(children: [for (var i = 0; i != 3; ++i) GamePiece(i + 3)])),
-          Expanded(child: Row(children: [for (var i = 0; i != 3; ++i) GamePiece(i + 6)])),
+          for (var j = 0; j != 3; ++j)
+            Expanded(child: Row(children: [for (var i = 0; i != 3; ++i) GamePiece(i + j * 3)])),
         ],
       );
 }

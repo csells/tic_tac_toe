@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:mobx/mobx.dart';
 
 // Include generated file
@@ -9,19 +10,37 @@ class GameState = _GameState with _$GameState;
 // The store-class
 abstract class _GameState with Store {
   DateTime _started;
-  //Timer _timer;
+  Timer _timer;
 
   @observable
   String player;
 
   @observable
-  var pieces = ObservableList<String>.of([null,null,null,null,null,null,null,null,null,]);
+  var pieces = ObservableList<String>.of([null, null, null, null, null, null, null, null, null]);
 
   @observable
   List<int> winnerPieces;
 
+  @observable
+  var gameDuration;
+
   _GameState() {
     reset();
+  }
+
+  @action
+  void reset() {
+    pieces.fillRange(0, pieces.length, null);
+    winnerPieces = null;
+    player = 'X';
+    _started = DateTime.now();
+    gameDuration = Duration(seconds: 0);
+
+    if (_timer != null) _timer.cancel();
+    _timer = Timer.periodic(
+      Duration(seconds: 1),
+      (_) => gameDuration = DateTime.now().difference(_started),
+    );
   }
 
   @observable
@@ -31,11 +50,10 @@ abstract class _GameState with Store {
   bool get gameOver => winner != null || pieces.every((p) => p != null);
 
   @observable
-  String get status => "It's $player's turn: ${_durationFormatFrom(_started, "HH:MM:SS")}";
+  String get status => "It's $player's turn: ${_durationFormat(gameDuration)}";
 
-  String _durationFormatFrom(DateTime dt, String format) {
-    assert(format == "HH:MM:SS"); // that's all we're handling right now...
-    var full = DateTime.now().difference(dt).toString();
+  static String _durationFormat(Duration diff) {
+    var full = diff == null ? "." : diff.toString();
     return full.substring(0, full.indexOf('.'));
   }
 
@@ -62,16 +80,5 @@ abstract class _GameState with Store {
     if (!gameOver) {
       player = player == 'X' ? 'O' : 'X';
     }
-  }
-
-  void reset() {
-    pieces.fillRange(0, pieces.length, null);
-    winnerPieces = null;
-    player = 'X';
-    _started = DateTime.now();
-
-    // TODO: what's best here?
-    //if (_timer != null) _timer.cancel();
-    //_timer = Timer.periodic(Duration(seconds: 1), (_) => notifyListeners());
   }
 }

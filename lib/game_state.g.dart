@@ -59,4 +59,33 @@ mixin _$GameState on _GameState, Store {
       _$winnerPiecesAtom.reportChanged();
     }, _$winnerPiecesAtom, name: '${_$winnerPiecesAtom.name}_set');
   }
+
+  final _$gameDurationAtom = Atom(name: '_GameState.gameDuration');
+
+  @override
+  dynamic get gameDuration {
+    _$gameDurationAtom.context.enforceReadPolicy(_$gameDurationAtom);
+    _$gameDurationAtom.reportObserved();
+    return super.gameDuration;
+  }
+
+  @override
+  set gameDuration(dynamic value) {
+    _$gameDurationAtom.context.conditionallyRunInAction(() {
+      super.gameDuration = value;
+      _$gameDurationAtom.reportChanged();
+    }, _$gameDurationAtom, name: '${_$gameDurationAtom.name}_set');
+  }
+
+  final _$_GameStateActionController = ActionController(name: '_GameState');
+
+  @override
+  void reset() {
+    final _$actionInfo = _$_GameStateActionController.startAction();
+    try {
+      return super.reset();
+    } finally {
+      _$_GameStateActionController.endAction(_$actionInfo);
+    }
+  }
 }
