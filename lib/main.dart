@@ -1,84 +1,37 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'dart:core';
-import 'dart:async';
-//import 'package:intl/intl.dart'; TODO: use DateFormat.durationFormatFrom when it's implemented...
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:tic_tac_toe/game_state.dart';
+import 'package:tic_tac_toe/mobx_provider_consumer.dart';
+import 'package:flutter/foundation.dart' show debugDefaultTargetPlatformOverride, kIsWeb;
 
-class GameState extends ChangeNotifier {
-  var _pieces = List<String>(9);
-  String _player;
-  List<int> _winnerPieces;
-  DateTime _started;
-  Timer _timer;
+void _desktopInitHack() {
+  if (kIsWeb) return;
 
-  GameState() {
-    reset();
-  }
-
-  String pieceAt(int pos) => _pieces[pos];
-  String get winner => _winnerPieces == null ? null : _pieces[_winnerPieces[0]];
-  bool get gameOver => winner != null || _pieces.every((p) => p != null);
-  List<int> get winnerPieces => _winnerPieces;
-  String get status => "It's $_player's turn: ${_durationFormatFrom(_started, "HH:MM:SS")}";
-
-  String _durationFormatFrom(DateTime dt, String format) {
-    assert(format == "HH:MM:SS"); // that's all we're handling right now...
-    var full = DateTime.now().difference(dt).toString();
-    return full.substring(0, full.indexOf('.'));
-  }
-
-  static const List<List<int>> _wins = [
-    [0, 1, 2], [3, 4, 5], [6, 7, 8], // by row
-    [0, 3, 6], [1, 4, 7], [2, 5, 8], // by column
-    [0, 4, 8], [2, 4, 6], // by diagonal
-  ];
-
-  void move(int pos) {
-    assert(!gameOver);
-    assert(_pieces[pos] == null);
-
-    // store the move and check for a winner
-    _pieces[pos] = _player;
-    for (var win in _wins) {
-      if (win.every((p) => _pieces[p] == _player)) {
-        _winnerPieces = win;
-        break;
-      }
-    }
-
-    // if the game isn't over, switch players
-    if (!gameOver) {
-      _player = _player == 'X' ? 'O' : 'X';
-    }
-
-    notifyListeners();
-  }
-
-  void reset() {
-    _pieces.fillRange(0, _pieces.length, null);
-    _winnerPieces = null;
-    _player = 'X';
-    _started = DateTime.now();
-
-    if (_timer != null) _timer.cancel();
-    _timer = Timer.periodic(Duration(seconds: 1), (_) => notifyListeners());
-
-    notifyListeners();
+  if (Platform.isMacOS) {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+  } else if (Platform.isLinux || Platform.isWindows) {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+  } else if (Platform.isFuchsia) {
+    debugDefaultTargetPlatformOverride = TargetPlatform.fuchsia;
   }
 }
 
 void main() {
-  runApp(App());
+  _desktopInitHack();
+  runApp(MyApp());
 }
 
-class App extends StatelessWidget {
+class MyApp extends StatelessWidget {
+  final _gameState = GameState();
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
         body: SafeArea(
-          child: ChangeNotifierProvider(
-            builder: (_) => GameState(),
+          child: Provider(
+            value: _gameState,
             child: GameView(),
           ),
         ),
@@ -141,22 +94,22 @@ class GamePiece extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Consumer<GameState>(
-        builder: (context, game, child) => Expanded(
-              child: CustomPaint(
-                painter: PiecePainter(game.pieceAt(pos)),
-                child: game.pieceAt(pos) == null
-                    ? GestureDetector(
-                        onTap: () {
-                          if (game.gameOver) return;
-                          game.move(pos);
-                          if (game.gameOver) gameOver(context);
-                        },
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(),
-                      )
-                    : Container(),
-              ),
-            ),
+        builder: (context, game) => Expanded(
+          child: CustomPaint(
+            painter: PiecePainter(game.pieces[pos]),
+            child: game.pieces[pos] == null
+                ? GestureDetector(
+                    onTap: () {
+                      if (game.gameOver) return;
+                      game.move(pos);
+                      if (game.gameOver) gameOver(context);
+                    },
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(),
+                  )
+                : Container(),
+          ),
+        ),
       );
 
   void gameOver(BuildContext context) {
@@ -215,7 +168,7 @@ class WinnerPainter extends CustomPainter {
     paint.color = Colors.green;
 
     canvas.drawLine(_pieceOffset(size, sx, game.winnerPieces[0]),
-        _pieceOffset(size, sx, game._winnerPieces[2]), paint);
+        _pieceOffset(size, sx, game.winnerPieces[2]), paint);
   }
 
   Offset _pieceOffset(Size size, double sx, int pos) {
